@@ -1,0 +1,55 @@
+@use "Easings";
+
+body {
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+}
+
+#root {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+
+    overflow: hidden;
+}
+
+.content-container {
+    position: relative;
+    flex-grow: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        color: #f6f6f6;
+        background-color: #2f2f2f;
+    }
+}
+
+.play-page-enter-active,
+.play-page-exit-active {
+    transition: transform 0.3s Easings.$md-cross-axis;
+}
+
+.play-page-enter-to,
+.play-page-exit {
+    transform: translateY(0);
+}
+
+.play-page-enter,
+.play-page-exit-to {
+    transform: translateY(120%);
+}

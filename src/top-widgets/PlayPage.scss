@@ -1,0 +1,68 @@
+.play-page {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+
+    display: grid;
+    grid-template-columns: 3fr 9fr;
+    grid-template-rows: 1fr 1fr;
+    grid-template-areas:
+        "a b"
+        "a b";
+    background-color: #cccccc11;
+}
+
+.play-page-area-a {
+    position: relative;
+    grid-area: a;
+
+    display: flex;
+    flex-direction: column-reverse;
+    overflow: visible;
+    box-sizing: border-box;
+
+    padding: 1rem;
+}
+
+.play-page-area-b {
+    position: relative;
+    grid-area: b;
+    overflow: visible;
+    box-sizing: border-box;
+
+    padding: 1rem;
+}
+
+.play-page-info {
+    position: relative;
+    flex: 1 1 0;
+    box-sizing: border-box;
+
+    text-align: start;
+
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-end;
+    flex-shrink: 1;
+}
+
+.play-page-info-title {
+    font-size: 2.2rem;
+}
+
+.play-page-info-artist,
+.play-page-info-album {
+    font-size: 1.4rem;
+}
+
+.play-page-picture {
+    position: relative;
+    border-radius: 1rem;
+    border: 2px solid #88888888;
+    overflow: hidden;
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
