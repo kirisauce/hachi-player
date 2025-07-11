@@ -2,6 +2,7 @@
   "name": "hachi-player",
   "version": "0.1.0",
   "description": "",
+  "author": "kirisauce",
   "type": "module",
   "scripts": {
     "start": "vite",
