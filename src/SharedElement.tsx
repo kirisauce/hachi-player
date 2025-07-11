@@ -264,9 +264,6 @@ function performTransition(callback: () => void) {
 
             // Set style for old and new element.
             const elOld = group.elOld?.el;
-            if (name === "play-page") {
-                console.log(elOld);
-            }
 
             const elNew = elStateNew.el.cloneNode(true) as HTMLElement;
             const rectNew = elStateNew.el.getBoundingClientRect();
