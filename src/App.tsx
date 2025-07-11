@@ -3,7 +3,7 @@ import "./App.scss";
 import { MusicBar } from "./top-widgets/MusicBar";
 import { createStore } from "solid-js/store";
 import { PlayPage } from "./top-widgets/PlayPage";
-import { SharedElement, startTransitionSE } from "./SharedElement";
+import { startTransitionSE } from "./SharedElement";
 
 
 function App(): JSX.Element {
@@ -40,17 +40,15 @@ function App(): JSX.Element {
         <main class="container" style={globalStyle}>
             <div class="content-container">
                 <Show when={playPageShow()}>
-                    <SharedElement name="play-page">
-                        <PlayPage
-                            style={{
-                                "z-index": "50",
-                            }}
-                            title={musicTitle()}
-                            artist={musicArtist()}
-                            album={musicAlbum()}
-                            ref={elPlayPage}
-                        />
-                    </SharedElement>
+                    <PlayPage
+                        style={{
+                            "z-index": "50",
+                        }}
+                        title={musicTitle()}
+                        artist={musicArtist()}
+                        album={musicAlbum()}
+                        ref={elPlayPage}
+                    />
                 </Show>
             </div>
             <MusicBar

@@ -12,4 +12,5 @@ export namespace Easings {
     export const MdCrossAxis = "cubic-bezier(0.4, 0, 0.2, 1)";
 
     export const MotionDefault = () => MdCrossAxis;
+    export const OpacityDefault = () => "ease-out";
 }

@@ -327,8 +327,9 @@ function performTransition(callback: () => void) {
                     // height: `${rectNew.height}px`,
                     transform: `matrix(${rectNew.width / group.rectOld!.width}, 0, 0, ${rectNew.height / group.rectOld!.height}, ${rectNew.x}, ${rectNew.y})`,
                 }], mergeProps({
-                    duration: 300,
+                    duration: 500,
                     easing: Easings.MotionDefault(),
+                    fill: "forwards" as any,
                 }, elStateNew.transformAnimation));
 
                 anim.finished.then(() => {
@@ -336,20 +337,27 @@ function performTransition(callback: () => void) {
                 });
             }
 
+            const fadeAnimations: Animation[] = [];
             if (elStateNew.fadeInAnimation.enable ?? true) {
-                elNew.animate([{
+                const anim = elNew.animate([{
                     opacity: 1,
                 }], mergeProps({
-                    duration: 300,
+                    duration: 150,
+                    easing: Easings.OpacityDefault(),
+                    fill: "forwards" as any,
                 }, elStateNew.fadeInAnimation));
+                fadeAnimations.push(anim);
             }
 
             if ((elStateNew.fadeOutAnimation.enable ?? true) && elOld) {
-                elOld.animate([{
+                const anim = elOld.animate([{
                     opacity: 0,
                 }], mergeProps({
-                    duration: 300,
+                    duration: 150,
+                    easing: Easings.OpacityDefault(),
+                    fill: "forwards" as any,
                 }, elStateNew.fadeOutAnimation));
+                fadeAnimations.push(anim);
             }
 
             const transitionElements = {
@@ -365,6 +373,7 @@ function performTransition(callback: () => void) {
             Promise.all(animations.map(anim => anim.finished)).finally(() => {
                 elStateNew.el.classList.remove("--se-transition-internal-hidden");
                 elStateNew.onAnimationsEnd?.(transitionElements);
+                fadeAnimations.forEach(anim => anim.finish());
                 elGroup.remove();
 
                 markFinished!();
@@ -399,7 +408,9 @@ function performTransition(callback: () => void) {
                 elOld.animate([{
                     opacity: 0,
                 }], mergeProps({
-                    duration: 300,
+                    duration: 150,
+                    easing: Easings.OpacityDefault(),
+                    fill: "forwards" as any,
                 }, elStateOld.fadeOutAnimation));
             }
 
