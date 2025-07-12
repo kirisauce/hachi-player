@@ -264,15 +264,20 @@ function performTransition(callback: () => void) {
 
             // Set style for old and new element.
             const elOld = group.elOld?.el;
+            const styleOld = elOld ? getComputedStyle(elOld) : undefined;
 
             const elNew = elStateNew.el.cloneNode(true) as HTMLElement;
             const rectNew = elStateNew.el.getBoundingClientRect();
+            const styleNew = getComputedStyle(elStateNew.el);
             elNew.classList.add("se-transition-element-new");
             elNew.classList.add(`se-transition-element-new-${name}`);
             elNew.style.width = `${rectNew.width}px`;
             elNew.style.height = `${rectNew.height}px`;
             elNew.style.transformOrigin = "top left";
             elNew.style.opacity = "0";
+            elNew.style.fontSize = styleNew.fontSize;
+            elNew.style.lineHeight = styleNew.lineHeight;
+            elNew.style.textAlign = styleNew.textAlign;
 
             // elOld may be non-existing
             if (elOld) {
@@ -281,6 +286,9 @@ function performTransition(callback: () => void) {
                 elOld.style.width = `${group.rectOld!.width}px`;
                 elOld.style.height = `${group.rectOld!.height}px`;
                 elOld.style.opacity = "1";
+                elOld.style.fontSize = styleOld!.fontSize;
+                elOld.style.lineHeight = styleOld!.lineHeight;
+                elOld.style.textAlign = styleOld!.textAlign;
                 elNew.style.transform = `matrix(${group.rectOld!.width / rectNew.width}, 0, 0, ${group.rectOld!.height / rectNew.height}, 0, 0)`;
             }
 
@@ -322,19 +330,15 @@ function performTransition(callback: () => void) {
 
             // Perform the transition animation
             if ((elStateNew.transformAnimation.enable ?? true) && elOld) {
-                const anim = elGroup.animate([{
+                elGroup.animate([{
                     // width: `${rectNew.width}px`,
                     // height: `${rectNew.height}px`,
                     transform: `matrix(${rectNew.width / group.rectOld!.width}, 0, 0, ${rectNew.height / group.rectOld!.height}, ${rectNew.x}, ${rectNew.y})`,
                 }], mergeProps({
-                    duration: 500,
+                    duration: 560,
                     easing: Easings.MotionDefault(),
-                    fill: "forwards" as any,
+                    fill: "both" as any,
                 }, elStateNew.transformAnimation));
-
-                anim.finished.then(() => {
-                    elGroup.remove();
-                });
             }
 
             const fadeAnimations: Animation[] = [];
@@ -344,7 +348,7 @@ function performTransition(callback: () => void) {
                 }], mergeProps({
                     duration: 150,
                     easing: Easings.OpacityDefault(),
-                    fill: "forwards" as any,
+                    fill: "both" as any,
                 }, elStateNew.fadeInAnimation));
                 fadeAnimations.push(anim);
             }
@@ -355,7 +359,7 @@ function performTransition(callback: () => void) {
                 }], mergeProps({
                     duration: 150,
                     easing: Easings.OpacityDefault(),
-                    fill: "forwards" as any,
+                    fill: "both" as any,
                 }, elStateNew.fadeOutAnimation));
                 fadeAnimations.push(anim);
             }
