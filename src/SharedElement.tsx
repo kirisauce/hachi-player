@@ -40,6 +40,7 @@ export interface ElementState {
     fadeInAnimation: AnimationSettings;
     onAnimationsReady?: (elements: TransitionElements) => void;
     onAnimationsEnd?: (elements: TransitionElements) => void;
+    dependencies: string[];
 }
 
 export interface GroupState {
@@ -76,6 +77,8 @@ export const globalState: {
      * Whether to silently fail if the transition fails.
      */
     silentlyFail: boolean,
+
+    maxDependencyDepth: number,
 } = {
     groups: new Map(),
     isTransitioning: false,
@@ -88,7 +91,17 @@ export const globalState: {
     previousTransitionFinished: Promise.resolve(),
     allowDefer: false,
     silentlyFail: false,
+    maxDependencyDepth: 100,
 };
+
+function cloneElementForTransition(el: HTMLElement): HTMLElement {
+    const elNew = el.cloneNode(true) as HTMLElement;
+    elNew.querySelectorAll(".--se-transition-internal-marker").forEach(elNested => {
+        elNested.classList.remove("--se-transition-internal-marker");
+        elNested.classList.add("--se-transition-internal-hidden");
+    });
+    return elNew;
+}
 
 /**
  * Saves the old state of shared elements and their bounding rectangles before a transition.
@@ -98,17 +111,15 @@ export const globalState: {
 function saveElementsAndBoundingRects() {
     globalState.groups.forEach((group) => {
         if (group.elements.length == 1) {
+            // Hide the nested elements by checking the marker class
+            const el = cloneElementForTransition(group.elements[0]().el);
             group.elOld = {
-                el: group.elements[0]().el.cloneNode(true) as HTMLElement,
+                el,
                 transformAnimation: group.elements[0]().transformAnimation,
                 fadeOutAnimation: group.elements[0]().fadeOutAnimation,
                 fadeInAnimation: group.elements[0]().fadeInAnimation,
+                dependencies: group.elements[0]().dependencies,
             };
-            // Hide the nested elements by checking the marker class
-            group.elOld!.el.querySelectorAll(".--se-transition-internal-marker").forEach(elNested => {
-                elNested.classList.remove("--se-transition-internal-marker");
-                elNested.classList.add("--se-transition-internal-hidden");
-            });
             // Why not use `group.elOld!.el`?
             // It is a copied element, and is not contained in the DOM tree.
             // So `getBoundingClientRect()` will get wrong rectangle.
@@ -153,6 +164,8 @@ export type SharedElementProps = {
      * It receives an object containing the old, new, group, and pair elements involved in the transition.
      */
     onAnimationEnd?: (elements: TransitionElements) => void;
+
+    dependencies?: string[];
 };
 
 const SharedElementDefaultProps = {
@@ -165,6 +178,7 @@ const SharedElementDefaultProps = {
     fadeInAnimationProps: {
         enable: true,
     },
+    dependencies: [],
 };
 
 export function SharedElement(rawProps: SharedElementProps): JSX.Element {
@@ -185,6 +199,7 @@ export function SharedElement(rawProps: SharedElementProps): JSX.Element {
         fadeInAnimation: props.fadeInAnimationProps,
         onAnimationsReady: props.onAnimationReady,
         onAnimationsEnd: props.onAnimationEnd,
+        dependencies: props.dependencies,
     });
     createEffect(() => {
         setElementState({
@@ -194,6 +209,7 @@ export function SharedElement(rawProps: SharedElementProps): JSX.Element {
             fadeInAnimation: props.fadeInAnimationProps,
             onAnimationsReady: props.onAnimationReady,
             onAnimationsEnd: props.onAnimationEnd,
+            dependencies: props.dependencies,
         });
     });
 
@@ -264,20 +280,52 @@ function performTransition(callback: () => void) {
     // Wait shared element to be changed.
     callback();
 
-    const animationPromises = new Array<Promise<any>>();
+    const animationPromiseList = new Array<Promise<any>>();
+    const groupsReady = new Array<string>();
+
+    let allReady = false, dependencyDepth = 1;
+    while (!allReady) {
+        if (dependencyDepth > globalState.maxDependencyDepth)  {
+            if (!globalState.silentlyFail) {
+                console.error(`Dependency depth exceeded the limitation ${globalState.maxDependencyDepth}`);
+            }
+            break;
+        }
+        allReady = performTransitionGroups(animationPromiseList, groupsReady);
+        dependencyDepth += 1;
+    }
+
+    Promise.all(animationPromiseList).finally(() => {
+        globalState.isTransitioning = false;
+        markFinished!();
+    });
+
+    clearSavedElementsAndBoundingRects();
+}
+
+function performTransitionGroups(animationPromiseList: Promise<any>[], groupsReady: string[]): boolean {
+    let allReady = true;
 
     // Perform transition animation on changed elements.
     for (const [name, group] of globalState.groups) {
+        if (groupsReady.includes(name))
+            continue;
+
         if (group.elements.length > 1) {
             console.error(`Shared element group '${name}' contains multiple elements(${group.elements.length}). No transition animation will be performed.`)
         } else if (group.elements.length == 1) {
             const elStateNew = group.elements[0]();
 
+            if (!elStateNew.dependencies.every(dep => groupsReady.includes(dep))) {
+                allReady = false;
+                continue;
+            }
+
             // Set style for old and new element.
             const elOld = group.elOld?.el;
             const styleOld = elOld ? getComputedStyle(elOld) : undefined;
 
-            const elNew = elStateNew.el.cloneNode(true) as HTMLElement;
+            const elNew = cloneElementForTransition(elStateNew.el);
             const rectNew = elStateNew.el.getBoundingClientRect();
             const styleNew = getComputedStyle(elStateNew.el);
             elNew.classList.add("se-transition-element-new");
@@ -392,9 +440,15 @@ function performTransition(callback: () => void) {
                 fadeAnimations.forEach(anim => anim.finish());
                 elGroup.remove();
             });
-            animationPromises.push(animationsEnd);
+            animationPromiseList.push(animationsEnd);
         } else {
             const elStateOld = group.elOld!;
+
+            if (!elStateOld.dependencies.every(dep => groupsReady.includes(dep))) {
+                allReady = false;
+                continue;
+            }
+
             const elOld = elStateOld.el;
             elOld.classList.add("se-transition-element-old");
             elOld.classList.add(`se-transition-element-old-${name}`);
@@ -443,14 +497,11 @@ function performTransition(callback: () => void) {
                 elStateOld.onAnimationsEnd?.(transitionElements);
                 elGroup.remove();
             });
-            animationPromises.push(animationsEnd);
+            animationPromiseList.push(animationsEnd);
         }
+
+        groupsReady.push(name);
     }
 
-    Promise.all(animationPromises).finally(() => {
-        globalState.isTransitioning = false;
-        markFinished!();
-    });
-
-    clearSavedElementsAndBoundingRects();
+    return allReady;
 }
