@@ -70,6 +70,12 @@ export const globalState: {
     transitionRoot: HTMLElement,
 
     previousTransitionFinished: Promise<void>;
+    allowDefer: boolean,
+
+    /**
+     * Whether to silently fail if the transition fails.
+     */
+    silentlyFail: boolean,
 } = {
     groups: new Map(),
     isTransitioning: false,
@@ -80,6 +86,8 @@ export const globalState: {
         return el;
     })(),
     previousTransitionFinished: Promise.resolve(),
+    allowDefer: false,
+    silentlyFail: false,
 };
 
 /**
@@ -229,11 +237,12 @@ export function SharedElement(rawProps: SharedElementProps): JSX.Element {
     return child();
 }
 
-export function startTransitionSE(callback: () => void, allowDefer: boolean = true) {
+export function startTransitionSE(callback: () => void, allowDefer_?: boolean) {
+    const allowDefer = allowDefer_ ?? globalState.allowDefer;
     if (globalState.isTransitioning) {
         if (allowDefer) {
             globalState.previousTransitionFinished.finally(() => performTransition(callback));
-        } else {
+        } else if (!globalState.silentlyFail) {
             console.error("Previous shared element transition has not finished yet.");
         }
     } else {
@@ -254,6 +263,8 @@ function performTransition(callback: () => void) {
 
     // Wait shared element to be changed.
     callback();
+
+    const animationPromises = new Array<Promise<any>>();
 
     // Perform transition animation on changed elements.
     for (const [name, group] of globalState.groups) {
@@ -374,14 +385,14 @@ function performTransition(callback: () => void) {
             elStateNew.onAnimationsReady?.(transitionElements);
 
             const animations = elGroup.getAnimations({ subtree: true });
-            Promise.all(animations.map(anim => anim.finished)).finally(() => {
+            const animationsEnd = Promise.all(animations.map(anim => anim.finished));
+            animationsEnd.finally(() => {
                 elStateNew.el.classList.remove("--se-transition-internal-hidden");
                 elStateNew.onAnimationsEnd?.(transitionElements);
                 fadeAnimations.forEach(anim => anim.finish());
                 elGroup.remove();
-
-                markFinished!();
             });
+            animationPromises.push(animationsEnd);
         } else {
             const elStateOld = group.elOld!;
             const elOld = elStateOld.el;
@@ -427,15 +438,19 @@ function performTransition(callback: () => void) {
             elStateOld.onAnimationsReady?.(transitionElements);
 
             const animations = elGroup.getAnimations({ subtree: true });
-            Promise.all(animations.map(anim => anim.finished)).finally(() => {
+            const animationsEnd = Promise.all(animations.map(anim => anim.finished));
+            animationsEnd.finally(() => {
                 elStateOld.onAnimationsEnd?.(transitionElements);
                 elGroup.remove();
-
-                markFinished!();
             });
+            animationPromises.push(animationsEnd);
         }
     }
-    globalState.isTransitioning = false;
+
+    Promise.all(animationPromises).finally(() => {
+        globalState.isTransitioning = false;
+        markFinished!();
+    });
 
     clearSavedElementsAndBoundingRects();
 }
