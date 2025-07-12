@@ -6,6 +6,8 @@ export interface AnimationSettings extends KeyframeEffectOptions {
     enable?: boolean;
 }
 
+export type ElementRole = "in" | "out";
+
 /**
  * The elements involved in a transition.
  * `group` is the root container for all elements involved in the transition.
@@ -23,11 +25,14 @@ export interface AnimationSettings extends KeyframeEffectOptions {
  * For example, when the transition is from a non-existing element to an existing element,
  * `old` will be undefined.
  */
-export interface TransitionElements {
-    old?: HTMLElement;
-    new?: HTMLElement;
-    group: HTMLElement;
-    pair: HTMLElement;
+export interface TransitionCallbackState {
+    elOld?: HTMLElement;
+    elNew?: HTMLElement;
+    elGroup: HTMLElement;
+    elPair: HTMLElement;
+
+    role: ElementRole;
+    isSingle: boolean;
 }
 
 /**
@@ -35,11 +40,10 @@ export interface TransitionElements {
  */
 export interface ElementState {
     el: HTMLElement;
-    transformAnimation: AnimationSettings;
     fadeOutAnimation: AnimationSettings;
     fadeInAnimation: AnimationSettings;
-    onAnimationsReady?: (elements: TransitionElements) => void;
-    onAnimationsEnd?: (elements: TransitionElements) => void;
+    onAnimationsReady?: (elements: TransitionCallbackState) => void;
+    onAnimationsEnd?: (elements: TransitionCallbackState) => void;
     dependencies: string[];
 }
 
@@ -58,6 +62,8 @@ export const globalState: {
      * The key is the shared element's `name` attribute.
      */
     groups: Map<string, GroupState>,
+
+    transformProperties: Map<string, AnimationSettings>,
 
     /**
      * Whether there is a transition in progress.
@@ -81,6 +87,7 @@ export const globalState: {
     maxDependencyDepth: number,
 } = {
     groups: new Map(),
+    transformProperties: new Map(),
     isTransitioning: false,
     transitionRoot: (() => {
         const el = document.createElement("div");
@@ -112,13 +119,15 @@ function saveElementsAndBoundingRects() {
     globalState.groups.forEach((group) => {
         if (group.elements.length == 1) {
             // Hide the nested elements by checking the marker class
-            const el = cloneElementForTransition(group.elements[0]().el);
+            const state = group.elements[0]();
+            const el = cloneElementForTransition(state.el);
             group.elOld = {
                 el,
-                transformAnimation: group.elements[0]().transformAnimation,
-                fadeOutAnimation: group.elements[0]().fadeOutAnimation,
-                fadeInAnimation: group.elements[0]().fadeInAnimation,
-                dependencies: group.elements[0]().dependencies,
+                fadeOutAnimation: state.fadeOutAnimation,
+                fadeInAnimation: state.fadeInAnimation,
+                onAnimationsReady: state.onAnimationsReady,
+                onAnimationsEnd: state.onAnimationsEnd,
+                dependencies: state.dependencies,
             };
             // Why not use `group.elOld!.el`?
             // It is a copied element, and is not contained in the DOM tree.
@@ -149,7 +158,6 @@ export type SharedElementProps = {
      */
     children: JSX.Element;
 
-    transformAnimationProps?: AnimationSettings;
     fadeOutAnimationProps?: AnimationSettings;
     fadeInAnimationProps?: AnimationSettings;
 
@@ -157,21 +165,18 @@ export type SharedElementProps = {
      * A callback function that is invoked when all animations are ready to start.
      * It receives an object containing the old, new, group, and pair elements involved in the transition.
      */
-    onAnimationReady?: (elements: TransitionElements) => void;
+    onAnimationsReady?: (elements: TransitionCallbackState) => void;
 
     /**
      * A callback function that is invoked when all animations have ended, including the user-defined animations.
      * It receives an object containing the old, new, group, and pair elements involved in the transition.
      */
-    onAnimationEnd?: (elements: TransitionElements) => void;
+    onAnimationsEnd?: (elements: TransitionCallbackState) => void;
 
     dependencies?: string[];
 };
 
 const SharedElementDefaultProps = {
-    transformAnimationProps: {
-        enable: true,
-    },
     fadeOutAnimationProps: {
         enable: true,
     },
@@ -194,21 +199,19 @@ export function SharedElement(rawProps: SharedElementProps): JSX.Element {
 
     const [elementState, setElementState] = createSignal<ElementState>({
         el: child(),
-        transformAnimation: props.transformAnimationProps,
         fadeOutAnimation: props.fadeOutAnimationProps,
         fadeInAnimation: props.fadeInAnimationProps,
-        onAnimationsReady: props.onAnimationReady,
-        onAnimationsEnd: props.onAnimationEnd,
+        onAnimationsReady: props.onAnimationsReady,
+        onAnimationsEnd: props.onAnimationsEnd,
         dependencies: props.dependencies,
     });
     createEffect(() => {
         setElementState({
             el: child(),
-            transformAnimation: props.transformAnimationProps,
             fadeOutAnimation: props.fadeOutAnimationProps,
             fadeInAnimation: props.fadeInAnimationProps,
-            onAnimationsReady: props.onAnimationReady,
-            onAnimationsEnd: props.onAnimationEnd,
+            onAnimationsReady: props.onAnimationsReady,
+            onAnimationsEnd: props.onAnimationsEnd,
             dependencies: props.dependencies,
         });
     });
@@ -251,6 +254,15 @@ export function SharedElement(rawProps: SharedElementProps): JSX.Element {
     });
 
     return child();
+}
+
+export function setTransformProperty(groupName: string, props: JSX.FunctionMaybe<AnimationSettings>) {
+    const resolvedProps = typeof props == "function" ? props() : props;
+    globalState.transformProperties.set(groupName, resolvedProps);
+}
+
+export function getTransformProperty(groupName: string): AnimationSettings | undefined {
+    return globalState.transformProperties.get(groupName);
 }
 
 export function startTransitionSE(callback: () => void, allowDefer_?: boolean) {
@@ -388,7 +400,7 @@ function performTransitionGroups(animationPromiseList: Promise<any>[], groupsRea
             elStateNew.el.classList.add("--se-transition-internal-hidden");
 
             // Perform the transition animation
-            if ((elStateNew.transformAnimation.enable ?? true) && elOld) {
+            if ((getTransformProperty(name)?.enable ?? true) && elOld) {
                 elGroup.animate([{
                     // width: `${rectNew.width}px`,
                     // height: `${rectNew.height}px`,
@@ -397,7 +409,7 @@ function performTransitionGroups(animationPromiseList: Promise<any>[], groupsRea
                     duration: 560,
                     easing: Easings.MotionDefault(),
                     fill: "both" as any,
-                }, elStateNew.transformAnimation));
+                }, getTransformProperty(name)));
             }
 
             const fadeAnimations: Animation[] = [];
@@ -410,33 +422,48 @@ function performTransitionGroups(animationPromiseList: Promise<any>[], groupsRea
                     fill: "both" as any,
                 }, elStateNew.fadeInAnimation));
                 fadeAnimations.push(anim);
+            } else {
+                elNew.style.opacity = "";
             }
 
-            if ((elStateNew.fadeOutAnimation.enable ?? true) && elOld) {
+            if (elOld && (group.elOld!.fadeOutAnimation.enable ?? true)) {
                 const anim = elOld.animate([{
                     opacity: 0,
                 }], mergeProps({
                     duration: 150,
                     easing: Easings.OpacityDefault(),
                     fill: "both" as any,
-                }, elStateNew.fadeOutAnimation));
+                }, group.elOld!.fadeOutAnimation));
                 fadeAnimations.push(anim);
             }
 
             const transitionElements = {
-                group: elGroup,
-                pair: elPair,
-                old: elOld,
-                new: elNew,
+                elGroup: elGroup,
+                elPair: elPair,
+                elOld: elOld,
+                elNew: elNew,
             };
 
-            elStateNew.onAnimationsReady?.(transitionElements);
+            const cbStateOld: TransitionCallbackState = {
+                role: "out",
+                isSingle: false,
+                ...transitionElements
+            };
+            group.elOld?.onAnimationsReady?.(cbStateOld)
+
+            const cbStateNew: TransitionCallbackState = {
+                role: "in",
+                isSingle: elOld === undefined,
+                ...transitionElements
+            };
+            elStateNew.onAnimationsReady?.(cbStateNew);
 
             const animations = elGroup.getAnimations({ subtree: true });
             const animationsEnd = Promise.all(animations.map(anim => anim.finished));
             animationsEnd.finally(() => {
                 elStateNew.el.classList.remove("--se-transition-internal-hidden");
-                elStateNew.onAnimationsEnd?.(transitionElements);
+                elStateNew.onAnimationsEnd?.(cbStateNew);
+                group.elOld?.onAnimationsEnd?.(cbStateOld);
                 fadeAnimations.forEach(anim => anim.finish());
                 elGroup.remove();
             });
@@ -483,18 +510,21 @@ function performTransitionGroups(animationPromiseList: Promise<any>[], groupsRea
                 }, elStateOld.fadeOutAnimation));
             }
 
-            const transitionElements = {
-                group: elGroup,
-                pair: elPair,
-                old: elOld,
+            const cbStateOld: TransitionCallbackState = {
+                elGroup: elGroup,
+                elPair: elPair,
+                elOld: elOld,
+
+                isSingle: true,
+                role: "out",
             };
 
-            elStateOld.onAnimationsReady?.(transitionElements);
+            elStateOld.onAnimationsReady?.(cbStateOld);
 
             const animations = elGroup.getAnimations({ subtree: true });
             const animationsEnd = Promise.all(animations.map(anim => anim.finished));
             animationsEnd.finally(() => {
-                elStateOld.onAnimationsEnd?.(transitionElements);
+                elStateOld.onAnimationsEnd?.(cbStateOld);
                 elGroup.remove();
             });
             animationPromiseList.push(animationsEnd);

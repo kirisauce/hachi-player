@@ -13,7 +13,6 @@
 .se-transition-group {
     position: fixed;
     overflow: visible;
-    z-index: 100000;
     transform-origin: top left;
 }
 
@@ -23,10 +22,9 @@
 
 .se-transition-element-old,
 .se-transition-element-new {
-    position: absolute;
+    position: fixed;
     left: 0;
     top: 0;
-    z-index: 100001;
 }
 
 .--se-transition-internal-hidden {
