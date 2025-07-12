@@ -1,6 +1,7 @@
 import { JSX, mergeProps, splitProps } from "solid-js";
 import "./PlayPage.scss";
 import { SharedElement } from "../SharedElement";
+import { Easings } from "../Util";
 
 const defaultProps = {
     title: "NO TITLE",
@@ -43,7 +44,24 @@ export function PlayPage(rawProps: PlayPageProps): JSX.Element {
         "ref"
     ]);
 
-    return <SharedElement name="play-page">
+    return <SharedElement
+        name="play-page"
+        dependencies={["music-info-picture", "music-info-title", "music-info-artist", "music-info-album"]}
+        fadeInAnimationProps={{ enable: false }}
+        fadeOutAnimationProps={{ enable: false }}
+        onAnimationsReady={(state) => {
+            state.elGroup.animate([{
+                transform: "translateY(120%)",
+            }, {
+                transform: "translateY(0)",
+            }], {
+                duration: 550,
+                easing: Easings.MotionDefault(),
+                fill: "both",
+                direction: state.role == "in" ? "normal" : "reverse",
+            });
+        }}
+    >
         <div class="play-page" {...opacityProps}>
             <div class="play-page-area-a">
                 <SharedElement name="music-info-picture">

@@ -3,7 +3,7 @@ import "./App.scss";
 import { MusicBar } from "./top-widgets/MusicBar";
 import { createStore } from "solid-js/store";
 import { PlayPage } from "./top-widgets/PlayPage";
-import { startTransitionSE } from "./SharedElement";
+import { SharedElement, startTransitionSE } from "./SharedElement";
 
 
 function App(): JSX.Element {
@@ -15,6 +15,13 @@ function App(): JSX.Element {
         "--theme-color": "#c1d3fe",
         "--shadow-color": "#2f2f2f22",
         "--deep-shadow-color": "#2f2f2f55",
+    });
+
+    createEffect(() => {
+        Object.entries(globalStyle).forEach((entry) => {
+            const [key, value] = entry;
+            document.body.style.setProperty(key, value);
+        })
     });
 
     const [playPageShow, setPlayPageShow] = createSignal(false);
@@ -37,13 +44,10 @@ function App(): JSX.Element {
     });
 
     return (
-        <main class="container" style={globalStyle}>
+        <main class="container">
             <div class="content-container">
                 <Show when={playPageShow()}>
                     <PlayPage
-                        style={{
-                            "z-index": "50",
-                        }}
                         title={musicTitle()}
                         artist={musicArtist()}
                         album={musicAlbum()}
@@ -51,21 +55,24 @@ function App(): JSX.Element {
                     />
                 </Show>
             </div>
-            <MusicBar
-                title={musicTitle()}
-                artist={musicArtist()}
-                album={musicAlbum()}
-                ref={(el: any) => {
-                    el.style.flexBasis = "4rem";
-                }}
-                style={{
-                    "z-index": "100",
-                }}
+            <SharedElement
+                name="music-bar"
+                fadeInAnimationProps={{ enable: false }}
+                fadeOutAnimationProps={{ enable: false }}
+            >
+                <MusicBar
+                    title={musicTitle()}
+                    artist={musicArtist()}
+                    album={musicAlbum()}
+                    ref={(el: any) => {
+                        el.style.flexBasis = "4rem";
+                    }}
 
-                onSwitchPage={() => startTransitionSE(() => setPlayPageShow(val => !val))}
-                showPicture={!playPageShow()}
-                showInfoText={!playPageShow()}
-            />
+                    onSwitchPage={() => startTransitionSE(() => setPlayPageShow(val => !val))}
+                    showPicture={!playPageShow()}
+                    showInfoText={!playPageShow()}
+                />
+            </SharedElement>
         </main>
     );
 }

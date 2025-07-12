@@ -39,17 +39,32 @@ body {
     }
 }
 
-.play-page-enter-active,
-.play-page-exit-active {
-    transition: transform 0.3s Easings.$md-cross-axis;
+.play-page {
+    z-index: 50;
 }
 
-.play-page-enter-to,
-.play-page-exit {
-    transform: translateY(0);
+.se-transition-group-play-page {
+    z-index: -50;
 }
 
-.play-page-enter,
-.play-page-exit-to {
-    transform: translateY(120%);
+.music-bar {
+    z-index: 100;
+}
+
+.se-transition-group-music-bar {
+    z-index: -25;
+}
+
+.se-transition-group-music-info-title,
+.se-transition-group-music-info-artist,
+.se-transition-group-music-info-album {
+    z-index: 0;
+}
+
+.se-transition-group-music-info-picture {
+    z-index: -10;
+}
+
+.se-transition-group-music-bar-controls-play-or-pause {
+    z-index: 0;
 }
