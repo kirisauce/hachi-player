@@ -40,8 +40,8 @@ export interface TransitionCallbackState {
  */
 export interface ElementState {
     el: HTMLElement;
-    fadeOutAnimation: AnimationSettings;
-    fadeInAnimation: AnimationSettings;
+    fadeOutAnimation: AnimationSettings & { initialOpacity?: string };
+    fadeInAnimation: AnimationSettings & { initialOpacity?: string };
     onAnimationsReady?: (elements: TransitionCallbackState) => void;
     onAnimationsEnd?: (elements: TransitionCallbackState) => void;
     dependencies: string[];
@@ -158,8 +158,8 @@ export type SharedElementProps = {
      */
     children: JSX.Element;
 
-    fadeOutAnimationProps?: AnimationSettings;
-    fadeInAnimationProps?: AnimationSettings;
+    fadeOutAnimationProps?: AnimationSettings & { initialOpacity?: string };
+    fadeInAnimationProps?: AnimationSettings & { initialOpacity?: string };
 
     /**
      * A callback function that is invoked when all animations are ready to start.
@@ -356,7 +356,7 @@ function performTransitionGroups(animationPromiseList: Promise<any>[], groupsRea
                 elOld.classList.add(`se-transition-element-old-${name}`);
                 elOld.style.width = `${group.rectOld!.width}px`;
                 elOld.style.height = `${group.rectOld!.height}px`;
-                elOld.style.opacity = "1";
+                elOld.style.opacity = group.elOld?.fadeOutAnimation.initialOpacity ?? "1";
                 elOld.style.fontSize = styleOld!.fontSize;
                 elOld.style.lineHeight = styleOld!.lineHeight;
                 elOld.style.textAlign = styleOld!.textAlign;
@@ -423,7 +423,7 @@ function performTransitionGroups(animationPromiseList: Promise<any>[], groupsRea
                 }, elStateNew.fadeInAnimation));
                 fadeAnimations.push(anim);
             } else {
-                elNew.style.opacity = "";
+                elNew.style.opacity = elStateNew.fadeInAnimation.initialOpacity ?? "";
             }
 
             if (elOld && (group.elOld!.fadeOutAnimation.enable ?? true)) {

@@ -31,8 +31,8 @@ function App(): JSX.Element {
             </div>
             <SharedElement
                 name="music-bar"
-                fadeInAnimationProps={{ enable: false }}
-                fadeOutAnimationProps={{ enable: false }}
+                fadeInAnimationProps={{ enable: false, initialOpacity: "1" }}
+                fadeOutAnimationProps={{ enable: false, initialOpacity: "0" }}
             >
                 <MusicBar
                     ref={(el: any) => {
