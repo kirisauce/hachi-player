@@ -1,4 +1,4 @@
-import { Accessor, children, createEffect, createMemo, createSignal, JSX, mergeProps, onCleanup, onMount, untrack } from "solid-js";
+import { Accessor, children, createEffect, createMemo, createSignal, JSX, mergeProps, on, onCleanup, onMount, untrack } from "solid-js";
 import "./SharedElement.scss";
 import { Easings, isElement } from "./Util";
 
@@ -173,7 +173,16 @@ export type SharedElementProps = {
      */
     onAnimationsEnd?: (elements: TransitionCallbackState) => void;
 
+    /**
+     * Name of other shared elements that this element depends on.
+     * Current element's transition animation will be put on after the dependencies' transition animation.
+     */
     dependencies?: string[];
+
+    /**
+     * Whether to enable transition animations for this element.
+     */
+    enable?: boolean;
 };
 
 const SharedElementDefaultProps = {
@@ -184,6 +193,7 @@ const SharedElementDefaultProps = {
         enable: true,
     },
     dependencies: [],
+    enable: true,
 };
 
 export function SharedElement(rawProps: SharedElementProps): JSX.Element {
@@ -196,6 +206,8 @@ export function SharedElement(rawProps: SharedElementProps): JSX.Element {
     }
     const child = createMemo(() => jsxChild() as HTMLElement);
     child().classList.add("--se-transition-internal-marker");
+
+    let isRegistered = false;
 
     const [elementState, setElementState] = createSignal<ElementState>({
         el: child(),
@@ -217,6 +229,11 @@ export function SharedElement(rawProps: SharedElementProps): JSX.Element {
     });
 
     const mountAction = (name: string) => {
+        if (isRegistered)
+            return;
+        else
+            isRegistered = true;
+
         if (globalState.groups.has(name)) {
             globalState.groups.get(name)!.elements.push(elementState);
         } else {
@@ -226,9 +243,14 @@ export function SharedElement(rawProps: SharedElementProps): JSX.Element {
             });
         }
     };
-    onMount(() => mountAction(props.name));
+    onMount(() => { if (props.enable) mountAction(props.name) });
 
     const cleanupAction = (name: string) => {
+        if (!isRegistered)
+            return;
+        else
+            isRegistered = false;
+
         const group = globalState.groups.get(name);
         if (group) {
             // If exists, remove the element from the list.
@@ -245,13 +267,20 @@ export function SharedElement(rawProps: SharedElementProps): JSX.Element {
     };
     onCleanup(() => cleanupAction(props.name));
 
-    createEffect(() => {
+    createEffect(on(() => props.enable, enable => {
+        if (enable)
+            mountAction(untrack(() => props.name));
+        else
+            cleanupAction(oldName);
+    }, { defer: true }));
+
+    createEffect(on(() => props.name, name => {
         if (props.name !== oldName) {
             cleanupAction(oldName);
-            mountAction(props.name);
-            oldName = props.name;
+            mountAction(name);
+            oldName = name;
         }
-    });
+    }, { defer: true }));
 
     return child();
 }
@@ -297,7 +326,7 @@ function performTransition(callback: () => void) {
 
     let allReady = false, dependencyDepth = 1;
     while (!allReady) {
-        if (dependencyDepth > globalState.maxDependencyDepth)  {
+        if (dependencyDepth > globalState.maxDependencyDepth) {
             if (!globalState.silentlyFail) {
                 console.error(`Dependency depth exceeded the limitation ${globalState.maxDependencyDepth}`);
             }
