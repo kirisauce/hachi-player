@@ -4,6 +4,7 @@ import { MusicBar } from "./top-widgets/MusicBar";
 import { createStore } from "solid-js/store";
 import { PlayPage } from "./top-widgets/PlayPage";
 import { SharedElement, startTransitionSE } from "./SharedElement";
+import { ContentPage } from "./top-widgets/ContentPage";
 
 
 function App(): JSX.Element {
@@ -28,6 +29,8 @@ function App(): JSX.Element {
                 <Show when={playPageShow()}>
                     <PlayPage />
                 </Show>
+
+                <ContentPage />
             </div>
             <SharedElement
                 name="music-bar"

@@ -1,0 +1,39 @@
+.content-page {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+
+    display: flex;
+    flex-direction: row;
+
+    background-color: var(--theme-color);
+}
+
+.content-page-side-bar {
+    position: relative;
+    background-color: #ffffff33;
+
+    border-right: 2px solid var(--shadow-color);
+}
+
+.content-page-side-bar-dragger {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: auto;
+    height: 100%;
+    transform: translateX(50%);
+    background: transparent;
+}
+
+.content-page-container {
+    position: relative;
+    flex: 1 1 100px;
+    background-color: #ffffff66;
+}
+
+.--content-page-side-bar-drag-cursor {
+    cursor: ew-resize
+}
