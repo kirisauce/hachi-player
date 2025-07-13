@@ -315,6 +315,14 @@ function performTransition(callback: () => void) {
     clearSavedElementsAndBoundingRects();
 }
 
+function hasNonZeroArea(rect: DOMRectReadOnly): boolean {
+    return rect.width != 0 && rect.height != 0;
+}
+
+function minScale(n: number): number {
+    return isNaN(n) || n == 0 ? 1 / n : n;
+}
+
 function performTransitionGroups(animationPromiseList: Promise<any>[], groupsReady: string[]): boolean {
     let allReady = true;
 
@@ -360,7 +368,7 @@ function performTransitionGroups(animationPromiseList: Promise<any>[], groupsRea
                 elOld.style.fontSize = styleOld!.fontSize;
                 elOld.style.lineHeight = styleOld!.lineHeight;
                 elOld.style.textAlign = styleOld!.textAlign;
-                elNew.style.transform = `matrix(${group.rectOld!.width / rectNew.width}, 0, 0, ${group.rectOld!.height / rectNew.height}, 0, 0)`;
+                elNew.style.transform = `matrix(${minScale(group.rectOld!.width / rectNew.width)}, 0, 0, ${minScale(group.rectOld!.height / rectNew.height)}, 0, 0)`;
             }
 
             // Put the old element and the new element into transition group element.
@@ -400,7 +408,7 @@ function performTransitionGroups(animationPromiseList: Promise<any>[], groupsRea
             elStateNew.el.classList.add("--se-transition-internal-hidden");
 
             // Perform the transition animation
-            if ((getTransformProperty(name)?.enable ?? true) && elOld) {
+            if ((getTransformProperty(name)?.enable ?? true) && elOld && hasNonZeroArea(group.rectOld!) && hasNonZeroArea(rectNew)) {
                 elGroup.animate([{
                     // width: `${rectNew.width}px`,
                     // height: `${rectNew.height}px`,
