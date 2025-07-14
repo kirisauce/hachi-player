@@ -1,5 +1,6 @@
-import { children, createSignal, JSX, onCleanup, onMount } from "solid-js";
+import { children, createSignal, For, JSX, onCleanup, onMount, Show } from "solid-js";
 import "./ContentPage.scss";
+import { useApp } from "../Contexts";
 
 interface SideBarProps {
     draggerWidth: number;
@@ -12,6 +13,7 @@ interface SideBarProps {
 }
 
 function SideBar(props: SideBarProps): JSX.Element {
+    const app = useApp();
     let dragPointerId: Number | undefined = undefined;
 
     const startDrag = (e: PointerEvent) => {
@@ -62,6 +64,24 @@ function SideBar(props: SideBarProps): JSX.Element {
             style={{ width: `${props.draggerWidth}px` }}
             onPointerDown={startDrag}
         />
+
+        <Show when={app.sideBarSettings.withLogo}>
+            <div class="content-page-side-bar-item content-page-side-bar-item-no-shadow">
+                <img class="content-page-side-bar-logo" src="/src-tauri/icons/icon.png" />
+                <a class="content-page-side-bar-logo-text">HachiPlayer</a>
+            </div>
+        </Show>
+
+        <For each={app.sideBarSettings.items}>
+            {(item) => {
+                return <div
+                    classList={{
+                        "content-page-side-bar-item": true,
+                        "content-page-side-bar-item-no-shadow": item().noShadow ?? false,
+                    }}
+                >{item().el}</div>;
+            }}
+        </For>
     </div>;
 }
 
